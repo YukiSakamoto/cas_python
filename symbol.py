@@ -56,10 +56,12 @@ class NodeVariable(NodeUnary):
     def __init__(self, name):
         self.name = name
     def eval(self, binder):
-        if self.name in binder:
-            return binder[self.name]
+        if self in binder:
+            return binder[self]
         else:
             raise
+    def __hash__(self):
+        return hash(self.name)
     def __eq__(self, lhs):
         return self.name == lhs.name
     def differentiate(self, var):
@@ -206,21 +208,43 @@ def sin(val):
 
 def steepest_descent(function, var_list, start_coord, 
         max_cycle = 5, grad_criteria = 0.05, diff_criteria = 0.05, factor = 0.1):
-    partial_differential_list = []
+    # var_list: list of variables
+    # start_coord : dict of variables and its values
+
+    if factor <= 0:
+        raise
+
+    print function
+    current_coord = start_coord
+    partial_differential_map = dict() 
     for var in var_list:
-        partial_differential_list.append(function.differentiate(var).reduction() )
+        partial_differential_map[var] = function.differentiate(var).reduction() 
+        print "df/d{}  = {}".format(var, partial_differential_map[var])
+
     diff = float('inf')
     grad = float('inf')
-    for i in range(max_cycle):
-        val = function.binder(start_coord)
-        grad_list = []
-        for d in partial_differential_list:
-            grad_list.append( d.eval(start_coord) )
-        grad_tot = sum(grad_list)
-        if grad < grad_criteria and diff < diff_criteria:
+    prev_val = float('inf')
+
+    for ncycle in range(max_cycle):
+        val = function.eval(current_coord)
+        grad_map = dict()
+        for var, par_diff in partial_differential_map.items():
+            grad_map[var] = par_diff.eval(current_coord)
+        diff = val - prev_val
+        grad = sum(grad_map.values() )
+
+        print "Value: {}  Diff: {}  Grad: {} Coord: {}".format(val, diff, grad, current_coord)
+        if ncycle == 0 and  abs(grad) < grad_criteria:
+            print "break1"
+            break
+        elif abs(grad) < grad_criteria and abs(diff) < diff_criteria:
+            print "break2"
             break
         else:
-            pass
+            # enter the next step
+            for (var, t) in grad_map.items():
+                current_coord[var] = current_coord[var] - t * factor
+            prev_val = val
         
     return 0
 
